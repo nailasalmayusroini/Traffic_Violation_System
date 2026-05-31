@@ -13,14 +13,11 @@ class TechnicalViolationLogger:
         """
         Logs an illegal parking event to Excel if it hasn't been logged yet.
         """
-        # If we already recorded this vehicle as illegal, skip it so we don't spam rows
         if vehicle_id in self.logged_ids:
             return
 
-        # Mark it as logged
         self.logged_ids.add(vehicle_id)
-
-        # Build the structured row
+        
         new_record = {
             "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Vehicle ID": int(vehicle_id),

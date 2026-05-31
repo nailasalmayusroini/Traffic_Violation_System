@@ -1,25 +1,30 @@
 # main.py
 import cv2
 import os
-# Import your teammates' code from the modules package
+
 from modules.vehicle_tracker import VehicleTrackerPipeline
 from modules.zone_logic import load_zones, update_all_vehicles
 from modules.excel_logger import TechnicalViolationLogger
 
 def main():
-    video_path = "input.mp4" # Put any stock traffic video here for testing
+    print("== RUNNING TRAFFIC VIOLATION DETECTION SYSTEM ==")
+    loc_num = input("Enter the location number you want to analyze (1, 2, 3, 4, or 5): ").strip()
     
-    if not os.path.exists(video_path):
-        print(f"[ERROR] Please place a sample video file named '{video_path}' in this folder.")
-        return
+    video_path = f"../videos/location{loc_num}.mp4"
+    zones_json_path = f"../configuration_data/zones_location{loc_num}.json"
+    output_excel_path = f"../final_outputs/traffic_violation_report_location{loc_num}.xlsx"
+    
+    if not os.path.exists(video_path) or not os.path.exists(zones_json_path):
+        print(f"Error: Missing {video_path} or {zones_json_path} in this directory.")
+        exit()
 
     # 1. Initialize variables and modules
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps == 0: fps = 30.0 # Fallback default
+    if fps == 0: fps = 30.0 
     
     frame_id = 0
-    timer_state = {} # Stores tracking history and timers for Person 3
+    timer_state = {} # Stores tracking history and timers
     
     # Instantiate the modules
     tracker_pipeline = VehicleTrackerPipeline()
@@ -27,9 +32,9 @@ def main():
     
     # Load the zones mapped out by zone_maker.py
     try:
-        zones = load_zones("zones.json")
+        zones = load_zones(zones_json_path)
     except FileNotFoundError:
-        print("[WARNING] 'zones.json' not found. Please run zone_maker.py first to configure zones!")
+        print("[WARNING] '{zones_json_path}' not found. Please run zone_maker.py first to configure zones!")
         return
 
     print("\n[INFO] Starting Master Intelligent Traffic Monitoring Pipeline...")
@@ -41,22 +46,20 @@ def main():
             
         frame_id += 1
         
-        # --- PHASE 1: Person 2's AI Tracking ---
+        # --- PHASE 1:AI Tracking ---
         # Returns: [frame_id, track_id, [x1, y1, x2, y2], class_name]
         tracking_payloads = tracker_pipeline.process_frame(frame, frame_id)
         
-        # --- PHASE 2: Data Transformation (Your Role) ---
-        # Convert Person 2's output into the dictionary structure Person 3's logic expects
+        # --- PHASE 2: Data Transformation ---
         prepared_vehicles = []
-        vehicle_type_map = {} # Keep track of types for your Excel logger
+        vehicle_type_map = {} 
         
         for payload in tracking_payloads:
             fid, track_id, box, class_name = payload
             x1, y1, x2, y2 = box
             
-            # Calculate the explicit bottom-center centroid of the vehicle bounding box
             cx = int((x1 + x2) / 2)
-            cy = int(y2) # Using bottom edge coordinates to verify road-contact region
+            cy = int(y2)
             
             prepared_vehicles.append({
                 "id": track_id,
@@ -64,11 +67,11 @@ def main():
             })
             vehicle_type_map[track_id] = class_name
 
-        # --- PHASE 3: Person 3's Spatial-Temporal Rule Checking ---
+        # --- PHASE 3: Spatial-Temporal Rule Checking ---
         # Returns a list of dictionaries: {"id": tracking_id, "status": "ILLEGAL/LEGAL/MONITORING", ...}
         evaluated_statuses = update_all_vehicles(prepared_vehicles, zones, timer_state, fps)
 
-        # --- PHASE 4: Person 4's Excel Event Logging ---
+        # --- PHASE 4: Excel Event Logging ---
         for vehicle_report in evaluated_statuses:
             v_id = vehicle_report["id"]
             status = vehicle_report["status"]
@@ -77,11 +80,9 @@ def main():
             
             if status == "ILLEGAL":
                 v_type = vehicle_type_map.get(v_id, "unknown")
-                # Trigger your logger module to append to Excel seamlessly
                 logger.log_violation(v_id, v_type, zone_label, duration)
 
         # --- PHASE 5: Basic Pipeline Verification Display ---
-        # Draw basic visual bounding boxes to verify everything works before passing to Person 1
         for payload in tracking_payloads:
             _, track_id, box, class_name = payload
             
@@ -107,6 +108,7 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
+    logger.save_report(output_excel_path)
     print("\n[INFO] Processing complete. Final spreadsheet saved.")
 
 if __name__ == "__main__":

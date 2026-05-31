@@ -55,7 +55,7 @@ class VehicleTrackerPipeline:
             track_id = track.track_id
             ltrb = track.to_ltrb() # Get bounding box in [left, top, right, bottom] format
             x1, y1, x2, y2 = map(int, ltrb)
-            class_name = track.get_class()
+            class_name = track.det_class
             
             # Construct the clean packet for Person 3
             frame_payload.append([frame_id, track_id, [x1, y1, x2, y2], class_name])
@@ -64,7 +64,6 @@ class VehicleTrackerPipeline:
 
 # --- Sandbox Mock Execution for Pair B Parallel Testing ---
 if __name__ == "__main__":
-    # Replace with the person 1 video path
     cap = cv2.VideoCapture("person_traffic.mp4")
     pipeline = VehicleTrackerPipeline()
     frame_counter = 0
@@ -79,11 +78,9 @@ if __name__ == "__main__":
         # Extract the structured payload
         tracking_data = pipeline.process_frame(frame, frame_counter)
         
-        # This printed output is exactly what Person 3 needs to ingest
         if len(tracking_data) > 0:
             print(f"Frame {frame_counter} Payload Example: {tracking_data[0]}")
             
-        # Optional: Render basic visualization for validation before passing to Person 1/4
         for data in tracking_data:
             fid, tid, box, cls_name = data
             cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
