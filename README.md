@@ -1,7 +1,5 @@
 # Traffic Violation Detection System
 
-# Traffic Violation Detection System
-
 An automated Computer Vision pipeline designed to detect illegal parking and traffic violations in restricted zones. The system monitors user-defined "Illegal Zones" via video streams, tracks vehicles across frames, and logs confirmed parking infractions directly into structured data sheets.
 
 ## Features
