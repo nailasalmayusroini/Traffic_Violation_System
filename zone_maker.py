@@ -4,10 +4,12 @@ import numpy as np
 import os
 
 print("=== TRAFFIC VIOLATION SYSTEM: ZONE CONFIGURATOR ===")
-loc_num = input("Enter location number to map (e.g., 1, 2, 3, 4): ").strip()
+loc_num = input("Enter location number to map (1, 2, 3): ").strip()
 
-VIDEO_PATH = f"../videos/location{loc_num}.mp4"  # Looks for location1.mov, location2.mov, etc.
-OUTPUT_FILE = f"../configuration_data/zones_location{loc_num}.json"  # Saves unique zones_location1.json, etc.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+VIDEO_PATH = os.path.join(BASE_DIR, "videos", f"location{loc_num}.mp4")  # Looks for location1.mov, location2.mov, etc.
+OUTPUT_FILE = os.path.join(BASE_DIR, "configuration_data", f"zones_location{loc_num}.json")  # Saves unique zones_location1.json, etc.
 FRAME_SIZE = (640, 640)
 
 ZONE_TYPES = {
@@ -25,10 +27,9 @@ def click_event(event, x, y, flags, param):
         print(f"  Corner added: ({x}, {y})  [{len(points)} total]")
 
 
-# Verify file exists before launching
 if not os.path.exists(VIDEO_PATH):
     print(f"\nERROR: Could not find the file '{VIDEO_PATH}' in this folder.")
-    print("Please make sure your files are named exactly 'location1.mov', 'location2.mov', etc.")
+    print("Please make sure your files are named exactly 'location1.mp4', 'location2.mp4', etc.")
     exit()
 
 cap = cv2.VideoCapture(VIDEO_PATH)
@@ -45,7 +46,6 @@ print(f"\nSuccessfully loaded: {VIDEO_PATH}")
 print("Left click = add corner | Enter = finish zone | ESC = save and quit")
 print("-" * 50)
 
-# Use a dynamic title window so you always know which location you are mapping
 window_title = f"Zone Maker - Location {loc_num}"
 cv2.namedWindow(window_title)
 cv2.setMouseCallback(window_title, click_event)
