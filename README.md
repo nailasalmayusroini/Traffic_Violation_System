@@ -4,7 +4,7 @@ An automated Computer Vision pipeline designed to detect illegal parking and tra
 
 ## Features
 * **Object Detection:** Utilizes **YOLOv8** to localize and classify target vehicles (`car`, `truck`, `motorcycle`).
-* **Multi-Object Tracking:** Leverages **BoT-SORT** to assign persistent, unique tracking IDs across sequential frames.
+* **Multi-Object Tracking:** Uses **DeepSORT** to assign unique tracking IDs across sequential frames.
 * **Geometric ROI Masking:** Evaluates zone compliance by checking if a vehicle's bounding box centroid crosses into the drawn coordinate boundaries via OpenCV.
 * **Temporal Threshold Filtering:** Applies a **1.2-second threshold rule** to separate passing or transient traffic from actual stationary violations.
 * **Automated Logging:** Automatically exports confirmed violation records (Vehicle Class, Unique ID, and precise Stop Duration) directly to Microsoft Excel spreadsheets.
