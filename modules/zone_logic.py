@@ -2,35 +2,20 @@ import os
 import json
 import cv2
 import numpy as np
-from collections import deque
 
 ZONES_FILE = "zones.json"
-STATIONARY_THRESHOLD_PX = 8
-TIME_LIMIT_SECONDS = 30.0
-STATIONARY_WINDOW = 5
-
 VALID_ZONE_TYPES = {"no_parking", "limited_parking"}
-
 
 def load_zones(filepath=ZONES_FILE):
     if not os.path.exists(filepath):
-        raise FileNotFoundError(
-            f"'{filepath}' not found. Run zone_maker.py first."
-        )
+        raise FileNotFoundError(f"'{filepath}' not found. Run zone_maker.py first.")
     with open(filepath, "r") as f:
         zones = json.load(f)
     for zone in zones:
         if zone["zone_type"] not in VALID_ZONE_TYPES:
-            raise ValueError(
-                f"Invalid zone_type '{zone['zone_type']}' in zone '{zone['id']}'. "
-                f"Must be one of: {VALID_ZONE_TYPES}"
-            )
-        zone["poly_array"] = np.array(zone["polygon"], dtype=np.int32)
+            raise ValueError(f"Invalid zone_type '{zone['zone_type']}' in zone '{zone['id']}'.")
     print(f"Loaded {len(zones)} zone(s) from '{filepath}'")
-    for z in zones:
-        print(f"  {z['id']} - {z['label']} ({z['zone_type']})")
     return zones
-
 
 def get_zone_for_vehicle(cent, zones):
     cx, cy = float(cent[0]), float(cent[1])
@@ -40,26 +25,14 @@ def get_zone_for_vehicle(cent, zones):
             return zone
     return None
 
-
-def is_stationary(cent_history):
-    if len(cent_history) < 2:
-        return False
-    dx = cent_history[-1][0] - cent_history[0][0]
-    dy = cent_history[-1][1] - cent_history[0][1]
-    dist = (dx**2 + dy**2) ** 0.5
-    return dist < STATIONARY_THRESHOLD_PX
-
-
 def make_empty_state():
+    """Initializes a persistent tracking state for a newly detected vehicle."""
     return {
-        "cent_history": deque(maxlen=STATIONARY_WINDOW),
         "zone_id": None,
         "stationary_frames": 0,
         "stationary_sec": 0.0,
         "status": "MONITORING",
-        # TODO: handle overlapping zones
     }
-
 
 def classify_vehicle(vehicle, zones, timer_state, fps):
     vid = vehicle["id"]
@@ -69,11 +42,9 @@ def classify_vehicle(vehicle, zones, timer_state, fps):
         timer_state[vid] = make_empty_state()
 
     state = timer_state[vid]
-    state["cent_history"].append(cent)
-    stationary = is_stationary(state["cent_history"])
-
     zone = get_zone_for_vehicle(cent, zones)
 
+    # Vehicle is Outside the Polygon Zone Boundaries 
     if zone is None:
         state["zone_id"] = None
         state["stationary_frames"] = 0
@@ -84,24 +55,21 @@ def classify_vehicle(vehicle, zones, timer_state, fps):
     zone_id = zone["id"]
     zone_type = zone["zone_type"]
 
+    # Vehicle has Transformed or Entered a New Zone 
     if state["zone_id"] != zone_id:
         state["zone_id"] = zone_id
         state["stationary_frames"] = 0
         state["stationary_sec"] = 0.0
         state["status"] = "LEGAL"
 
+    # Active Frame Temporal Monitoring Loop 
+    state["stationary_frames"] += 1
+    state["stationary_sec"] = state["stationary_frames"] / fps
+
     if zone_type == "no_parking":
         state["status"] = "ILLEGAL"
-
     elif zone_type == "limited_parking":
-        if stationary:
-            state["stationary_frames"] += 1
-            state["stationary_sec"] = state["stationary_frames"] / fps
-            state["status"] = "ILLEGAL" if state["stationary_sec"] >= TIME_LIMIT_SECONDS else "LEGAL"
-        else:
-            state["stationary_frames"] = 0
-            state["stationary_sec"] = 0.0
-            state["status"] = "LEGAL"
+        state["status"] = "ILLEGAL"
 
     return {
         "id": vid,
@@ -110,9 +78,6 @@ def classify_vehicle(vehicle, zones, timer_state, fps):
         "seconds": round(state["stationary_sec"], 1),
     }
 
-
 def update_all_vehicles(vehicles, zones, timer_state, fps):
-    active_ids = {v["id"] for v in vehicles}
-    for gid in set(timer_state.keys()) - active_ids:
-        del timer_state[gid]
+    """Evaluates tracking frames against spatial zones."""
     return [classify_vehicle(v, zones, timer_state, fps) for v in vehicles]
