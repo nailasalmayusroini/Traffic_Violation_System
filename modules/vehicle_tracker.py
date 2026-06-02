@@ -15,9 +15,9 @@ class VehicleTrackerPipeline:
         
         print("[INFO] Initializing DeepSORT Tracker...")
         self.tracker = DeepSort(
-            max_age=30,           # Retain ID for 30 frames if object is temporarily occluded
-            n_init=3,             # Confirm track after 3 consecutive frames
-            nms_max_overlap=1.0,  # Non-maxima suppression threshold
+            max_age=30,           
+            n_init=3,             
+            nms_max_overlap=1.0,  
             max_cosine_distance=0.2
         )
         self.allowed_classes = [2, 3, 5, 7] 
@@ -27,11 +27,11 @@ class VehicleTrackerPipeline:
         Processes a single video frame to detect and track vehicles.
         Returns a structured list: [Frame_ID, Track_ID, [x1, y1, x2, y2], Class_Name]
         """
-        # 1. Run YOLOv8 Detection
+        # YOLOv8 Detection
         results = self.model(frame, verbose=False)[0]
         detections = []
 
-        # 2. Parse Detections for DeepSORT input format: [ [left, top, w, h], confidence, detection_class ]
+        # 2. Parse Detections 
         for box in results.boxes:
             class_id = int(box.cls[0])
             confidence = float(box.conf[0])
@@ -43,26 +43,24 @@ class VehicleTrackerPipeline:
                 
                 detections.append(([x1, y1, w, h], confidence, class_name))
 
-        # 3. Update DeepSORT Tracking
+        # Update DeepSORT Tracking
         tracks = self.tracker.update_tracks(detections, frame=frame)
         frame_payload = []
 
-        # 4. Extract Active Tracks
+        # Extract Active Tracks
         for track in tracks:
             if not track.is_confirmed():
                 continue
                 
             track_id = track.track_id
-            ltrb = track.to_ltrb() # Get bounding box in [left, top, right, bottom] format
+            ltrb = track.to_ltrb() 
             x1, y1, x2, y2 = map(int, ltrb)
             class_name = track.det_class
             
-            # Construct the clean packet for Person 3
             frame_payload.append([frame_id, track_id, [x1, y1, x2, y2], class_name])
             
         return frame_payload
 
-# --- Sandbox Mock Execution for Pair B Parallel Testing ---
 if __name__ == "__main__":
     cap = cv2.VideoCapture("person_traffic.mp4")
     pipeline = VehicleTrackerPipeline()
@@ -75,7 +73,6 @@ if __name__ == "__main__":
             
         frame_counter += 1
         
-        # Extract the structured payload
         tracking_data = pipeline.process_frame(frame, frame_counter)
         
         if len(tracking_data) > 0:
